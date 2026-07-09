@@ -8,11 +8,26 @@ const os = require('os');
 const { pathToFileURL } = require('url');
 
 const POLL_MS = 2500;
+const FX_POLL_MS = 60 * 60 * 1000; // 1時間毎(レートは頻繁に叩く必要が無いため)
+const FX_URL = 'https://open.er-api.com/v6/latest/USD'; // 無料・無認証の USD 基準レートAPI
 const W = 300, H = 250;
 let win = null;
 let tray = null;
 let collectFn = null;
 let quitting = false; // トレイの「終了」経由の本当の終了フラグ(✕ボタンは非表示のみ)
+let usdJpyRate = null; // 直近取得できた USD/JPY レート。取得できるまでは null(renderer 側で非表示)
+
+// 円換算表示のためだけに使う外部通信。README にも明記している通り、これが唯一の
+// ネットワークアクセス。失敗時は前回値を保持し続ける(オフラインでも壊れない)。
+async function fetchFxRate() {
+  try {
+    const res = await fetch(FX_URL, { signal: AbortSignal.timeout(5000) });
+    const j = await res.json();
+    if (j && j.rates && typeof j.rates.JPY === 'number') usdJpyRate = j.rates.JPY;
+  } catch {
+    // 失敗時は前回値を維持。初回失敗時は null のまま(renderer が非表示にする)。
+  }
+}
 
 // Claude Code 側の SessionStart フックが書き込むセッション生存マーカー。
 // マーカーが 1 つも無くなったら(= 最後の Claude Code セッションが終了したら)自動終了する。
@@ -40,7 +55,7 @@ async function tick() {
   if (!win || win.isDestroyed() || !collectFn) return;
   let data;
   try { data = collectFn(); } catch (e) { return; }
-  win.webContents.send('usage', data);
+  win.webContents.send('usage', { ...data, usdJpyRate });
 }
 
 function createWindow() {
@@ -140,8 +155,10 @@ if (!app.requestSingleInstanceLock()) {
     await loadCollector();
     createWindow();
     createTray();
+    fetchFxRate().then(tick); // レート取得を待って一度反映(初回だけ ¥ 表示が少し遅れる)
     tick();
     setInterval(tick, POLL_MS);
+    setInterval(fetchFxRate, FX_POLL_MS);
     startSessionWatch();
   });
 }

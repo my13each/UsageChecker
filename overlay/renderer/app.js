@@ -1,6 +1,7 @@
 const COLORS = { Fable:"#4A90E2", Opus:"#3CB371", Sonnet:"#E8A33D", Haiku:"#8BC34A", Other:"#9aa4b0" };
 const HOT = new Set(["Fable", "Opus"]);   // 高コストモデル
 const fmt = (n) => "$" + (n || 0).toFixed(2);
+const yenFmt = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 0 });
 
 /**
  * 今日の支出 $ -> 猫の表情ファイル名。dailyMax($/日 = 100%)は設定ファイル由来
@@ -21,7 +22,11 @@ function render(data) {
   const per = (data.today && data.today.perModel) || [];
   const total = (data.today && data.today.total) || 0;
   el("total").textContent = fmt(total);
-  el("sess").textContent = "session " + fmt(data.session && data.session.total);
+  // header に既に "today" があるため、ここは重複させず円換算(小さい字)に置き換える。
+  // レート未取得(起動直後 or 通信失敗継続中)の間は何も表示しない。
+  el("jpy").textContent = typeof data.usdJpyRate === "number"
+    ? `(¥${yenFmt.format(total * data.usdJpyRate)})`
+    : "";
   el("cat").src = "assets/" + catFace(total, data.dailyMax);
 
   // バー描画
