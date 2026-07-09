@@ -1,15 +1,23 @@
 // UsageChecker overlay — cross-platform (Win/Mac/Linux) Electron widget.
 // 画面隅に常駐し、~/.claude のトランスクリプトから実コスト($)を毎数秒集計して表示。
 // mac 専用 API(osascript/say)は不使用。ドッキングなし・固定コーナー(ドラッグ移動可)。
-const { app, BrowserWindow, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { pathToFileURL } = require('url');
 
 const POLL_MS = 2500;
 const W = 300, H = 250;
 let win = null;
+let tray = null;
 let collectFn = null;
+let quitting = false; // トレイの「終了」経由の本当の終了フラグ(✕ボタンは非表示のみ)
+
+// Claude Code 側の SessionStart フックが書き込むセッション生存マーカー。
+// マーカーが 1 つも無くなったら(= 最後の Claude Code セッションが終了したら)自動終了する。
+// PID の生死で判定するため、正常終了・強制終了(クラッシュ)どちらも拾える。
+const SESS_DIR = path.join(os.tmpdir(), 'usagechecker-sessions');
 
 function layoutFile() { return path.join(app.getPath('userData'), 'usage-layout.json'); }
 function loadPos() {
@@ -45,7 +53,7 @@ function createWindow() {
     width: W, height: H, x, y,
     transparent: true, frame: false, hasShadow: false,
     resizable: false, skipTaskbar: true, alwaysOnTop: true,
-    show: false,
+    show: false, focusable: false, // クリックやドラッグでターミナルのフォーカスを奪わない
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true, nodeIntegration: false,
@@ -59,12 +67,71 @@ function createWindow() {
   win.once('ready-to-show', () => win.showInactive());
   win.on('moved', savePos);
 
-  ipcMain.on('uc-quit', () => { savePos(); app.quit(); });
+  // ✕ボタンは「隠す」だけ。本当の終了はトレイの「終了」かセッション監視に任せる。
+  win.on('close', (e) => {
+    if (quitting) return;
+    e.preventDefault();
+    savePos();
+    win.hide();
+  });
+
+  ipcMain.on('uc-quit', () => { if (win && !win.isDestroyed()) win.close(); });
   ipcMain.on('uc-move', (_e, d) => {
     if (!win || win.isDestroyed()) return;
     const [cx, cy] = win.getPosition();
     win.setPosition(cx + Math.round(d.dx || 0), cy + Math.round(d.dy || 0));
   });
+}
+
+function showWidget() {
+  if (!win || win.isDestroyed()) { createWindow(); return; }
+  win.showInactive();
+}
+
+function createTray() {
+  // 埋め込み 16x16 の $ アイコン(ファイル無しで済ませるための最小データ URI)。
+  const icon = nativeImage.createFromDataURL(
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAg0lEQVR4' +
+    '2mNgYGD4z8DAwMzAwMDAxMDAwMzAwMDMwMDAwMzAwMDMwMDAwMzAwMDMwMDAwMzAwMDMwMDAwMzAw' +
+    'MDMwMDAwMzAwMDMwMDAwMzAwMDMwMDAwMzAwMDMwMDAwMzAwMDMwMDAwMzAwMDMwMDAwAAA//8DAG' +
+    'W6Bx8AAAAASUVORK5CYII='
+  );
+  tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
+  tray.setToolTip('UsageChecker');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: '表示', click: showWidget },
+    { label: '終了', click: () => { quitting = true; app.quit(); } },
+  ]));
+  tray.on('click', showWidget);
+}
+
+// last-Claude-Code-session watch: マーカーが無い状態が続いたら自動終了。
+// hooks/on-session.sh がセッション開始毎に SESS_DIR/<pid> を作る前提。
+// マーカーが存在しない(フック未設定・古いバージョン等)場合は監視自体をスキップし、
+// ウィジェットは手動終了(トレイの「終了」)まで動き続ける。
+function startSessionWatch() {
+  const launchAt = Date.now();
+  let goneCount = 0;
+  setInterval(() => {
+    if (Date.now() - launchAt < 8000) return; // 起動直後はマーカーがまだ無いことがある
+    let alive = 0;
+    try {
+      for (const f of fs.readdirSync(SESS_DIR)) {
+        const pid = parseInt(f, 10);
+        if (!pid) continue;
+        try { process.kill(pid, 0); alive++; }
+        catch (e) {
+          if (e.code === 'ESRCH') { try { fs.unlinkSync(path.join(SESS_DIR, f)); } catch {} }
+          else alive++; // EPERM 等は生存扱い
+        }
+      }
+    } catch {
+      return; // ディレクトリ無し = フック未設定、または最初のセッション開始前 -> 監視しない
+    }
+    // ディレクトリが存在して空(=マーカー全滅)なら alive は 0 のまま、ここで正しく増分される
+    if (alive === 0) { if (++goneCount >= 2) { quitting = true; app.quit(); } }
+    else goneCount = 0;
+  }, 5000);
 }
 
 if (!app.requestSingleInstanceLock()) {
@@ -74,8 +141,12 @@ if (!app.requestSingleInstanceLock()) {
     if (process.platform === 'darwin' && app.setActivationPolicy) app.setActivationPolicy('accessory');
     await loadCollector();
     createWindow();
+    createTray();
     tick();
     setInterval(tick, POLL_MS);
+    startSessionWatch();
   });
 }
-app.on('window-all-closed', () => app.quit());
+// ✕ボタンは hide のみ(close ハンドラで preventDefault)なので、ここは
+// トレイの「終了」/ セッション監視 が quitting=true にした時だけ本当に終わる。
+app.on('window-all-closed', () => { if (quitting) app.quit(); });
