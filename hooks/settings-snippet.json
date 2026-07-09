@@ -1,0 +1,16 @@
+{
+  "_comment": "参考スニペット。この SessionStart フックを ~/.claude/settings.json の既存 .hooks.SessionStart 配列に追記してください(上書きしないこと)。パスは絶対パスで、あなたの実際のクローン先に置き換えてください。",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/UsageChecker/hooks/on-session.sh",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}

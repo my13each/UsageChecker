@@ -1,0 +1,13 @@
+{
+  "name": "usagechecker-overlay",
+  "version": "0.0.1",
+  "description": "Cross-platform floating widget showing real-time Claude Code cost per model",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.0"
+  }
+}

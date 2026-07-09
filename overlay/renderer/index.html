@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --fable:#4A90E2; --opus:#3CB371; --sonnet:#E8A33D; --haiku:#8BC34A; --other:#9aa4b0;
+    --card:#1c232dF2; --line:#2a333f; --txt:#e6edf3; --dim:#8b98a5; --warn:#ff5c5c;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; user-select:none; }
+  html,body { background:transparent; overflow:hidden; }
+  body { font:13px/1.4 -apple-system,"Hiragino Sans","Noto Sans JP","Segoe UI",sans-serif; color:var(--txt); }
+
+  .widget {
+    margin:6px; padding:14px 16px 12px;
+    background:rgba(28,35,45,.95);
+    border:1px solid var(--line); border-radius:14px;
+    box-shadow:0 8px 32px rgba(0,0,0,.5);
+    -webkit-app-region:no-drag;
+  }
+  .widget.alert { border-color:var(--warn); box-shadow:0 0 0 1px var(--warn),0 8px 32px rgba(255,92,92,.22); }
+
+  .head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; -webkit-app-region:drag; cursor:grab; }
+  .head h1 { font-size:11px; font-weight:600; letter-spacing:.05em; color:var(--dim); }
+  .head .x { -webkit-app-region:no-drag; cursor:pointer; color:var(--dim); font-size:14px; line-height:1; padding:2px 4px; border-radius:4px; }
+  .head .x:hover { color:var(--txt); background:var(--line); }
+
+  .total { display:flex; align-items:baseline; gap:7px; margin-bottom:12px; }
+  .total .num { font-size:30px; font-weight:700; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
+  .total .unit { font-size:12px; color:var(--dim); }
+  .total .sess { font-size:11px; color:var(--dim); margin-left:auto; font-variant-numeric:tabular-nums; }
+
+  .mid { display:flex; gap:14px; align-items:center; margin-bottom:11px; }
+  .cat { width:64px; height:64px; flex:none; object-fit:contain; filter:drop-shadow(0 2px 6px rgba(0,0,0,.35)); transition:opacity .3s ease; }
+  .bars { flex:1; display:flex; flex-direction:column; gap:8px; min-width:0; }
+  .bar-row .bl { display:flex; justify-content:space-between; font-size:12px; margin-bottom:3px; }
+  .bar-row .amt { font-variant-numeric:tabular-nums; color:var(--dim); }
+  .track { height:6px; background:var(--line); border-radius:3px; overflow:hidden; }
+  .fill { height:100%; border-radius:3px; transition:width .4s ease; }
+  .empty { color:var(--dim); font-size:12px; text-align:center; padding:10px 0; }
+
+  .foot {
+    display:flex; justify-content:space-between; align-items:center;
+    border-top:1px solid var(--line); padding-top:9px; font-size:11px; color:var(--dim);
+  }
+  .foot .cur { display:flex; align-items:center; gap:6px; }
+  .foot .pill { padding:2px 8px; border-radius:6px; background:var(--line); font-weight:600; color:var(--txt); }
+  .foot .pill.hot { background:var(--warn); color:#fff; }
+  .foot .msg.hot { color:var(--warn); }
+</style>
+</head>
+<body>
+  <div class="widget" id="widget">
+    <div class="head">
+      <h1>AI コスト · today</h1>
+      <span class="x" id="close" title="閉じる">✕</span>
+    </div>
+    <div class="total">
+      <span class="num" id="total">$0.00</span>
+      <span class="unit">today</span>
+      <span class="sess" id="sess">session $0.00</span>
+    </div>
+    <div class="mid">
+      <img class="cat" id="cat" src="assets/cat-content.png" alt="">
+      <div class="bars" id="bars"><div class="empty">集計中…</div></div>
+    </div>
+    <div class="foot">
+      <span class="cur">選択中 <span class="pill" id="sel">-</span></span>
+      <span class="msg" id="msg"></span>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
