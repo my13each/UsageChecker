@@ -27,7 +27,7 @@
 
   .total { display:flex; align-items:baseline; gap:7px; margin-bottom:12px; }
   .total .num { font-size:30px; font-weight:700; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
-  .total .unit { font-size:12px; color:var(--dim); }
+  .total .jpy { font-size:12px; color:var(--dim); }
 
   .mid { display:flex; gap:14px; align-items:center; margin-bottom:11px; }
   .cat { width:64px; height:64px; flex:none; object-fit:contain; filter:drop-shadow(0 2px 6px rgba(0,0,0,.35)); transition:opacity .3s ease; }
@@ -56,7 +56,7 @@
     </div>
     <div class="total">
       <span class="num" id="total">$0.00</span>
-      <span class="unit" id="jpy"></span>
+      <span class="jpy" id="jpy"></span>
     </div>
     <div class="mid">
       <img class="cat" id="cat" src="assets/cat-content.png" alt="">

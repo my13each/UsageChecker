@@ -25,7 +25,7 @@ function render(data) {
   // header に既に "today" があるため、ここは重複させず円換算(小さい字)に置き換える。
   // レート未取得(起動直後 or 通信失敗継続中)の間は何も表示しない。
   el("jpy").textContent = typeof data.usdJpyRate === "number"
-    ? `(¥${yenFmt.format(total * data.usdJpyRate)})`
+    ? `約¥${yenFmt.format(total * data.usdJpyRate)} 使用中`
     : "";
   el("cat").src = "assets/" + catFace(total, data.dailyMax);
 
@@ -45,13 +45,23 @@ function render(data) {
   // 選択中モデル(/model の即時反映) + 警告
   const sel = data.selectedModel || "-";
   const hot = HOT.has(sel);
+  const dailyMax = data.dailyMax || 30;
+  const overBudget = total > dailyMax;
   const pill = el("sel");
   pill.textContent = sel;
   pill.className = "pill" + (hot ? " hot" : "");
+
+  // 高コストモデル使用中の切替提案 > 上限超過の警告 > 残り予算(安全な状態でも空欄にしない)
   const msg = el("msg");
-  msg.textContent = hot ? "Sonnetへ切替を" : "";
-  msg.className = "msg" + (hot ? " hot" : "");
-  el("widget").className = "widget" + (hot ? " alert" : "");
+  if (hot) {
+    msg.textContent = "Sonnetへ切替を";
+  } else if (overBudget) {
+    msg.textContent = "上限を超えています";
+  } else {
+    msg.textContent = `残り ${fmt(dailyMax - total)}`;
+  }
+  msg.className = "msg" + ((hot || overBudget) ? " hot" : "");
+  el("widget").className = "widget" + ((hot || overBudget) ? " alert" : "");
 }
 
 window.uc.onUsage(render);
