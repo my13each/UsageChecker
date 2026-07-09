@@ -89,14 +89,12 @@ function showWidget() {
 }
 
 function createTray() {
-  // 埋め込み 16x16 の $ アイコン(ファイル無しで済ませるための最小データ URI)。
-  const icon = nativeImage.createFromDataURL(
-    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAg0lEQVR4' +
-    '2mNgYGD4z8DAwMzAwMDAxMDAwMzAwMDMwMDAwMzAwMDMwMDAwMzAwMDMwMDAwMzAwMDMwMDAwMzAw' +
-    'MDMwMDAwMzAwMDMwMDAwMzAwMDMwMDAwMzAwMDMwMDAwMzAwMDMwMDAwMzAwMDMwMDAwAAA//8DAG' +
-    'W6Bx8AAAAASUVORK5CYII='
-  );
-  tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
+  // トレイアイコンは既存の猫アセットを縮小して使う(自前base64は壊れると
+  // isEmpty()==true になり、メニューバーに何も表示されない不具合になるため
+  // 実在するPNGファイルから作る方が安全)。
+  let icon = nativeImage.createFromPath(path.join(__dirname, 'renderer', 'assets', 'cat-content.png'));
+  if (!icon.isEmpty()) icon = icon.resize({ width: 18, height: 18 });
+  tray = new Tray(icon);
   tray.setToolTip('UsageChecker');
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: '表示', click: showWidget },
