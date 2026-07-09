@@ -34,11 +34,13 @@ function render(data) {
   if (!per.length) {
     bars.innerHTML = '<div class="empty">今日の使用なし</div>';
   } else {
-    const max = Math.max(...per.map((d) => d.v), 1e-9);
+    // バーの長さは「今日の総額に対するこのモデルの割合」で描く(右に出す % 表記と揃える)。
+    // 以前は最大値に対する相対幅だったため、上位2モデルが近い金額だとどちらも
+    // ほぼ満タンに見えて「50%なのに両方フルバー?」という混乱を招いていた。
     bars.innerHTML = per.map((d) => `
       <div class="bar-row">
         <div class="bl"><span>${d.m}</span><span class="amt">${fmt(d.v)} · ${Math.round(d.v / total * 100)}%</span></div>
-        <div class="track"><div class="fill" style="width:${Math.max(4, d.v / max * 100)}%;background:${COLORS[d.m] || COLORS.Other}"></div></div>
+        <div class="track"><div class="fill" style="width:${Math.max(4, d.v / total * 100)}%;background:${COLORS[d.m] || COLORS.Other}"></div></div>
       </div>`).join("");
   }
 
