@@ -18,7 +18,37 @@ function catFace(total, dailyMax) {
 
 const el = (id) => document.getElementById(id);
 
+// 表示モード。"limit" = 使用上限(dailyMax 対比の1本バー / 既定), "analysis" = 使用量分析(モデル別内訳)。
+// トグルで切替。最後に受け取ったデータを保持し、トグル時に IPC を待たず即再描画する。
+let mode = "limit";
+let lastData = null;
+
+/**
+ * 使用上限バー: 「今日の総額 / dailyMax」を1本のバーで描く。/usage の "X% used" 感覚のローカル等価物。
+ * 100% 超は 100% 幅で頭打ち + 赤。しきい値: 〜75% 緑, 〜100% 橙, 超過 赤。
+ */
+function limitBars(total, dailyMax) {
+  const max = dailyMax || 30;
+  const pct = max > 0 ? (total / max) * 100 : 0;
+  const col = pct > 100 ? "var(--warn)" : pct > 75 ? COLORS.Sonnet : COLORS.Opus;
+  return `
+    <div class="bar-row">
+      <div class="bl"><span>使用上限 ${fmt(max)}</span><span class="amt">${Math.round(pct)}% 使用</span></div>
+      <div class="track"><div class="fill" style="width:${Math.max(4, Math.min(100, pct))}%;background:${col}"></div></div>
+    </div>`;
+}
+
+/** 使用量分析バー: 今日の総額に対するモデル別の割合。右の % 表記とバー長を必ず同基準で揃える。 */
+function analysisBars(per, total) {
+  return per.map((d) => `
+    <div class="bar-row">
+      <div class="bl"><span>${d.m}</span><span class="amt">${fmt(d.v)} · ${Math.round(d.v / total * 100)}%</span></div>
+      <div class="track"><div class="fill" style="width:${Math.max(4, d.v / total * 100)}%;background:${COLORS[d.m] || COLORS.Other}"></div></div>
+    </div>`).join("");
+}
+
 function render(data) {
+  lastData = data;
   const per = (data.today && data.today.perModel) || [];
   const total = (data.today && data.today.total) || 0;
   el("total").textContent = fmt(total);
@@ -29,19 +59,14 @@ function render(data) {
     : "";
   el("cat").src = "assets/" + catFace(total, data.dailyMax);
 
-  // バー描画
+  // バー描画(モードで切替)
   const bars = el("bars");
-  if (!per.length) {
+  if (mode === "limit") {
+    bars.innerHTML = limitBars(total, data.dailyMax);
+  } else if (!per.length) {
     bars.innerHTML = '<div class="empty">今日の使用なし</div>';
   } else {
-    // バーの長さは「今日の総額に対するこのモデルの割合」で描く(右に出す % 表記と揃える)。
-    // 以前は最大値に対する相対幅だったため、上位2モデルが近い金額だとどちらも
-    // ほぼ満タンに見えて「50%なのに両方フルバー?」という混乱を招いていた。
-    bars.innerHTML = per.map((d) => `
-      <div class="bar-row">
-        <div class="bl"><span>${d.m}</span><span class="amt">${fmt(d.v)} · ${Math.round(d.v / total * 100)}%</span></div>
-        <div class="track"><div class="fill" style="width:${Math.max(4, d.v / total * 100)}%;background:${COLORS[d.m] || COLORS.Other}"></div></div>
-      </div>`).join("");
+    bars.innerHTML = analysisBars(per, total);
   }
 
   // 選択中モデル(/model の即時反映) + 警告
@@ -67,6 +92,19 @@ function render(data) {
 }
 
 window.uc.onUsage(render);
+
+// 表示モード切替のセグメントボタン2個(使用上限 / 使用量分析)。
+// アクティブなほうに .on(青)を付ける。既定は使用上限。
+const segLimit = el("m-limit");
+const segAnalysis = el("m-analysis");
+function setMode(next) {
+  mode = next;
+  segLimit.classList.toggle("on", mode === "limit");
+  segAnalysis.classList.toggle("on", mode === "analysis");
+  if (lastData) render(lastData);
+}
+segLimit.addEventListener("click", () => setMode("limit"));
+segAnalysis.addEventListener("click", () => setMode("analysis"));
 
 // 閉じる
 el("close").addEventListener("click", () => window.uc.quit());

@@ -10,7 +10,10 @@ const { pathToFileURL } = require('url');
 const POLL_MS = 2500;
 const FX_POLL_MS = 60 * 60 * 1000; // 1時間毎(レートは頻繁に叩く必要が無いため)
 const FX_URL = 'https://open.er-api.com/v6/latest/USD'; // 無料・無認証の USD 基準レートAPI
-const W = 300, H = 250;
+// W/H は「透明ウィンドウ全体」のサイズ。カード本体は index.html の .widget(margin 分だけ内側)。
+// box-shadow(blur 32px + y8px)がウィンドウ端で切れないよう、カード周囲に余白を確保している。
+// 余白が足りないと影がハードに断ち切られ、暗い矩形の縁として見える(実際に発生した不具合)。
+const W = 336, H = 300;
 let win = null;
 let tray = null;
 let collectFn = null;

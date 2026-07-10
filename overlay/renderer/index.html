@@ -12,7 +12,7 @@
   body { font:13px/1.4 -apple-system,"Hiragino Sans","Noto Sans JP","Segoe UI",sans-serif; color:var(--txt); }
 
   .widget {
-    margin:6px; padding:14px 16px 12px;
+    margin:24px; padding:14px 16px 12px;
     background:rgba(28,35,45,.95);
     border:1px solid var(--line); border-radius:14px;
     box-shadow:0 8px 32px rgba(0,0,0,.5);
@@ -24,6 +24,15 @@
   .head h1 { font-size:11px; font-weight:600; letter-spacing:.05em; color:var(--dim); }
   .head .x { -webkit-app-region:no-drag; cursor:pointer; color:var(--dim); font-size:14px; line-height:1; padding:2px 4px; border-radius:4px; }
   .head .x:hover { color:var(--txt); background:var(--line); }
+  .head .right { display:flex; align-items:center; gap:8px; }
+  .head .seg { display:flex; background:var(--line); border-radius:7px; padding:2px; gap:2px; }
+  .head .seg-btn {
+    -webkit-app-region:no-drag; cursor:pointer; font-size:10.5px; font-weight:600;
+    color:var(--dim); background:transparent; border:none; border-radius:5px;
+    padding:3px 8px; letter-spacing:.02em; transition:background .18s,color .18s;
+  }
+  .head .seg-btn:hover { color:var(--txt); }
+  .head .seg-btn.on { background:var(--fable); color:#fff; }
 
   .total { display:flex; align-items:baseline; gap:7px; margin-bottom:12px; }
   .total .num { font-size:30px; font-weight:700; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
@@ -51,8 +60,14 @@
 <body>
   <div class="widget" id="widget">
     <div class="head">
-      <h1>AI コスト · today</h1>
-      <span class="x" id="close" title="閉じる">✕</span>
+      <h1>AI コスト</h1>
+      <div class="right">
+        <div class="seg">
+          <button class="seg-btn on" id="m-limit">使用上限</button>
+          <button class="seg-btn" id="m-analysis">使用量分析</button>
+        </div>
+        <span class="x" id="close" title="閉じる">✕</span>
+      </div>
     </div>
     <div class="total">
       <span class="num" id="total">$0.00</span>
