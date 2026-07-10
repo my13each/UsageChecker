@@ -1,5 +1,8 @@
 const COLORS = { Fable:"#4A90E2", Opus:"#3CB371", Sonnet:"#E8A33D", Haiku:"#8BC34A", Other:"#9aa4b0" };
 const HOT = new Set(["Fable", "Opus"]);   // 高コストモデル
+// dailyMax($/日 = 100%)の既定値。data.dailyMax は通常 collect() が渡すが、
+// 未取得時のフォールバック。lib/usage.mjs の DEFAULT_DAILY_MAX と一致させること。
+const DEFAULT_DAILY_MAX = 30;
 const fmt = (n) => "$" + (n || 0).toFixed(2);
 const yenFmt = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 0 });
 
@@ -9,7 +12,7 @@ const yenFmt = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 0 });
  * 適正額が違うため各ユーザーが自分で編集する前提。
  */
 function catFace(total, dailyMax) {
-  const pct = (total / (dailyMax || 30)) * 100;
+  const pct = (total / (dailyMax || DEFAULT_DAILY_MAX)) * 100;
   if (pct <= 25) return "cat-happy.png";
   if (pct <= 50) return "cat-content.png";
   if (pct <= 75) return "cat-neutral.png";
@@ -28,7 +31,7 @@ let lastData = null;
  * 100% 超は 100% 幅で頭打ち + 赤。しきい値: 〜75% 緑, 〜100% 橙, 超過 赤。
  */
 function limitBars(total, dailyMax) {
-  const max = dailyMax || 30;
+  const max = dailyMax || DEFAULT_DAILY_MAX;
   const pct = max > 0 ? (total / max) * 100 : 0;
   const col = pct > 100 ? "var(--warn)" : pct > 75 ? COLORS.Sonnet : COLORS.Opus;
   return `
@@ -40,11 +43,16 @@ function limitBars(total, dailyMax) {
 
 /** 使用量分析バー: 今日の総額に対するモデル別の割合。右の % 表記とバー長を必ず同基準で揃える。 */
 function analysisBars(per, total) {
-  return per.map((d) => `
+  return per.map((d) => {
+    // total=0(全モデルの実額が 0)でも 0/0=NaN にならないよう保護。NaN だと "NaN%" 表示 +
+    // width:NaN% が無効 CSS になる。
+    const pct = total > 0 ? (d.v / total) * 100 : 0;
+    return `
     <div class="bar-row">
-      <div class="bl"><span>${d.m}</span><span class="amt">${fmt(d.v)} · ${Math.round(d.v / total * 100)}%</span></div>
-      <div class="track"><div class="fill" style="width:${Math.max(4, d.v / total * 100)}%;background:${COLORS[d.m] || COLORS.Other}"></div></div>
-    </div>`).join("");
+      <div class="bl"><span>${d.m}</span><span class="amt">${fmt(d.v)} · ${Math.round(pct)}%</span></div>
+      <div class="track"><div class="fill" style="width:${Math.max(4, pct)}%;background:${COLORS[d.m] || COLORS.Other}"></div></div>
+    </div>`;
+  }).join("");
 }
 
 function render(data) {
@@ -52,7 +60,7 @@ function render(data) {
   const per = (data.today && data.today.perModel) || [];
   const total = (data.today && data.today.total) || 0;
   el("total").textContent = fmt(total);
-  // header に既に "today" があるため、ここは重複させず円換算(小さい字)に置き換える。
+  // 円換算(小さい字)。$ の隣に併記する。
   // レート未取得(起動直後 or 通信失敗継続中)の間は何も表示しない。
   el("jpy").textContent = typeof data.usdJpyRate === "number"
     ? `約¥${yenFmt.format(total * data.usdJpyRate)} 使用中`
@@ -72,7 +80,7 @@ function render(data) {
   // 選択中モデル(/model の即時反映) + 警告
   const sel = data.selectedModel || "-";
   const hot = HOT.has(sel);
-  const dailyMax = data.dailyMax || 30;
+  const dailyMax = data.dailyMax || DEFAULT_DAILY_MAX;
   const overBudget = total > dailyMax;
   const pill = el("sel");
   pill.textContent = sel;
@@ -113,7 +121,9 @@ el("close").addEventListener("click", () => window.uc.quit());
 let dragging = false, lx = 0, ly = 0;
 const head = document.querySelector(".head");
 head.addEventListener("mousedown", (e) => {
-  if (e.target.id === "close") return;
+  // ヘッダー右側の操作要素(セグメントトグル / ✕)ではドラッグを開始しない。
+  // これが無いと、app-region 非対応環境やボタン上の mousedown でクリックがドラッグに化ける。
+  if (e.target.closest(".right")) return;
   dragging = true; lx = e.screenX; ly = e.screenY;
 });
 window.addEventListener("mousemove", (e) => {
